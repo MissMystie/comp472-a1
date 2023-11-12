@@ -24,27 +24,29 @@ def load_dataset_abalone(dataset_filepath: str) -> pd.DataFrame:
     return df
 
 
-def plot(df: pd.DataFrame, target: str, label_x: str, output_filepath: str, run, pdf_filename):
+def plot(df: pd.DataFrame, target: str, label_x: str, output_filepath: str, animal: str):
     # Calculate the percentage of instances for the output class
     class_percent = df[target].value_counts(normalize=True) * 100
 
     # Create a bar plot
     plt.figure(figsize=(8, 6))
     class_percent.plot(kind='bar', color='skyblue')
-    plt.title(f'Percentage of Instances in Each Output Class - Run {run}')
+    plt.title(f'Percentage of instances for each output class for {animal}')
     plt.xlabel(label_x)
     plt.ylabel('Percentage')
     plt.xticks(rotation=45)
     plt.tight_layout()
 
     # Save the plot in the PDF file
-    pdf_filename.savefig()
+    with PdfPages(output_filepath) as pdf:
+        pdf.savefig()
 
     # Show the plot
+    plt.show()
     plt.close()
 
 
-def base_dt(animal, df: pd.DataFrame, X_train, X_test, y_train, y_test, X, max_depth, pdf_pages):
+def base_dt(animal, X_train, X_test, y_train, y_test, X, max_depth, output):
     # Train DT classifier with default parameters
     base_dt = DecisionTreeClassifier(max_depth=max_depth)
     base_dt.fit(X_train, y_train)
@@ -59,7 +61,8 @@ def base_dt(animal, df: pd.DataFrame, X_train, X_test, y_train, y_test, X, max_d
     plot_tree(base_dt, feature_names=X.columns, class_names=base_dt.classes_, filled=True, max_depth=max_depth)
 
     # Save the decision tree plot in the PDF file
-    pdf_pages.savefig()
+    output.savefig()
+    plt.show()
 
     # Show the plot
     plt.close()
@@ -67,7 +70,7 @@ def base_dt(animal, df: pd.DataFrame, X_train, X_test, y_train, y_test, X, max_d
     return y_pred
 
 
-def top_dt(animal, df: pd.DataFrame, X_train, X_test, y_train, y_test, max_depth=None):
+def top_dt(animal, X_train, X_test, y_train, y_test, max_depth=None):
     # Define hyperparameter grid
     param_grid = {
         'criterion': ['gini', 'entropy'],
@@ -91,13 +94,13 @@ def top_dt(animal, df: pd.DataFrame, X_train, X_test, y_train, y_test, max_depth
     return y_pred
 
 
-def base_mlp(animal, df: pd.DataFrame, X_train, X_test, y_train, y_test):
+def base_mlp(animal, X_train, X_test, y_train, y_test):
     base_mlp = MLPClassifier(
         hidden_layer_sizes=(100, 100),  # 2 hidden layers with 100 neurons each
         activation='logistic',  # Sigmoid (logistic) activation function
         solver='sgd',  # Stochastic gradient descent
-        random_state=36,  # For reproducibility
-        max_iter=1000,
+        #random_state=36,  # For reproducibility
+        max_iter=1200,
         learning_rate_init=0.001
     )
 
@@ -111,7 +114,7 @@ def base_mlp(animal, df: pd.DataFrame, X_train, X_test, y_train, y_test):
     return y_pred
 
 
-def top_mlp(animal, df: pd.DataFrame, X_train, X_test, y_train, y_test):
+def top_mlp(animal, X_train, X_test, y_train, y_test):
     # Define hyperparameter grid
     param_grid = {
         'activation': ['logistic', 'tanh', 'relu'],  # Activation functions
@@ -143,36 +146,38 @@ def append_results(results, model_name, y, y_true, y_pred, run):
     results.append("(B) Confusion Matrix: \n" + str(cm) + "\n\n")
     report = classification_report(y_true, y_pred, target_names=y.unique(), zero_division=1)
     results.append("(C) Precision, Recall, and F1-measure: \n" + str(report) + "\n\n")
-    results.append(f"(D)Accuracy, macro-average F1 and weighted-average F1 of the model\n")
+    results.append(f"(D) Accuracy, macro-average F1 and weighted-average F1 of the model\n")
     accuracy = accuracy_score(y_true, y_pred)
     macro_f1 = f1_score(y_true, y_pred, average='macro')
     weighted_f1 = f1_score(y_true, y_pred, average='weighted')
-    results.append(f"\t Accuracy: {accuracy:.2f}\n")
+    results.append(f"\tAccuracy: {accuracy:.2f}\n")
     results.append(f"\tMacro-Average F1: {macro_f1:.2f}\n")
     results.append(f"\tWeighted-Average F1: {weighted_f1:.2f}\n")
     results.append("\n\n")
     return results, accuracy, macro_f1, weighted_f1
 
 
-def train_machines(animal, X, y, df: pd.DataFrame, output_filename: str, max_depth=None):
+def train_machines(animal, X, y, output_filepath: str, runs: int = 1, max_depth=None):
     accuracies = []
     macro_f1s = []
     weighted_f1s = []
 
-    open(f"output/{output_filename}.txt", "w")
+    decision_tree_filepath = f'output/{animal}_decision_trees.pdf'
 
-    pdf_filename = f'{animal}_percentages_plot.pdf'
-
-    with PdfPages(f'output/{pdf_filename}') as pdf_pages:
-        for run in range(5):
+    with PdfPages(decision_tree_filepath) as dt_output:
+        for run in range(runs):
             # Split dataset into training and testing sets.
             # Add arg random_state=36 to specify random seed for reproducibility
             X_train, X_test, y_train, y_test = train_test_split(X, y)
 
-            y_pred_base_dt = base_dt(animal, df, X_train, X_test, y_train, y_test, X, max_depth, pdf_pages)
-            y_pred_top_dt = top_dt(animal, df, X_train, X_test, y_train, y_test, max_depth)
-            y_pred_base_mlp = base_mlp(animal, df, X_train, X_test, y_train, y_test)
-            y_pred_top_mlp = top_mlp(animal, df, X_train, X_test, y_train, y_test)
+            print(f'= Dataset: {animal}, run {run + 1} =')
+
+            y_pred_base_dt = base_dt(animal, X_train, X_test, y_train, y_test, X, max_depth, dt_output)
+            y_pred_top_dt = top_dt(animal, X_train, X_test, y_train, y_test, max_depth)
+            y_pred_base_mlp = base_mlp(animal, X_train, X_test, y_train, y_test)
+            y_pred_top_mlp = top_mlp(animal, X_train, X_test, y_train, y_test)
+
+            print("\n")
 
             results = []
             results, acc_base_dt, macro_f1_base_dt, weighted_f1_base_dt = append_results(results, "Base-DT", y, y_test,
@@ -186,11 +191,8 @@ def train_machines(animal, X, y, df: pd.DataFrame, output_filename: str, max_dep
                                                                                          y_pred_top_mlp, run)
 
             # Output
-            with open(f"output/{output_filename}.txt", "a") as file:
+            with open(output_filepath, "a") as file:
                 file.writelines(results)
-
-            # Save the bar graph
-            plot(df, 'species' if animal == 'penguins' else 'Type', 'Sex', None, run, pdf_pages)
 
             accuracies.append([acc_base_dt, acc_top_dt, acc_base_mlp, acc_top_mlp])
             macro_f1s.append([macro_f1_base_dt, macro_f1_top_dt, macro_f1_base_mlp, macro_f1_top_mlp])
@@ -207,15 +209,24 @@ def main():
     all_weighted_f1s = []
 
     for animal in animals:
+
+        dataset_filepath = f'datasets/{animal}.csv'
+        percentages_plot_filepath = f'output/{animal}_percentages_plot.pdf'
+        performance_filepath = f'output/{animal}_performance.txt'
+
         if animal == 'penguins':
-            dataset = load_dataset_penguins('datasets/penguins.csv')
+            dataset = load_dataset_penguins(dataset_filepath)
+            target_var, target_label = 'species', 'Species'
         elif animal == 'abalone':
-            dataset = load_dataset_abalone('datasets/abalone.csv')
+            dataset = load_dataset_abalone(dataset_filepath)
+            target_var, target_label = 'Type', 'Sex'
 
-        X = dataset.drop('species' if animal == 'penguins' else 'Type', axis=1)  # Features
-        y = dataset['species' if animal == 'penguins' else 'Type']  # Target variable
 
-        accuracies, macro_f1s, weighted_f1s = train_machines(animal, X, y, dataset, f"{animal}_performance", 4)
+        plot(dataset, target_var, target_label, percentages_plot_filepath, animal)  # Save the bar graph
+        X = dataset.drop(target_var, axis=1)  # Features
+        y = dataset[target_var]  # Target variable
+
+        accuracies, macro_f1s, weighted_f1s = train_machines(animal, X, y, performance_filepath, 5, 4)
 
         all_accuracies.append(accuracies)
         all_macro_f1s.append(macro_f1s)
@@ -228,7 +239,6 @@ def main():
     var_macro_f1s = np.var(all_macro_f1s, axis=0)
     avg_weighted_f1s = np.mean(all_weighted_f1s, axis=0)
     var_weighted_f1s = np.var(all_weighted_f1s, axis=0)
-
 
     # Display results
     for i, animal in enumerate(animals):
