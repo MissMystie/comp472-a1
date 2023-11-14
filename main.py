@@ -46,7 +46,7 @@ def plot(df: pd.DataFrame, target: str, label_x: str, output_filepath: str, anim
     plt.close()
 
 
-def base_dt(animal, X_train, X_test, y_train, y_test, X, max_depth, output):
+def base_dt(animal, X_train, X_test, y_train, y_test, X, output, max_depth=None):
     # Train DT classifier with default parameters
     base_dt = DecisionTreeClassifier(max_depth=max_depth)
     base_dt.fit(X_train, y_train)
@@ -70,7 +70,7 @@ def base_dt(animal, X_train, X_test, y_train, y_test, X, max_depth, output):
     return y_pred
 
 
-def top_dt(animal, X_train, X_test, y_train, y_test, max_depth=None):
+def top_dt(animal, X_train, X_test, y_train, y_test, X, output, max_depth=None):
     # Define hyperparameter grid
     param_grid = {
         'criterion': ['gini', 'entropy'],
@@ -90,6 +90,17 @@ def top_dt(animal, X_train, X_test, y_train, y_test, max_depth=None):
     print(f"Accuracy of Top-DT for {animal}: {top_dt_accuracy:.2f}")
 
     y_pred = top_dt.predict(X_test)
+
+    # Visualize
+    plt.figure(figsize=(15, 10))
+    plot_tree(top_dt, feature_names=X.columns, class_names=top_dt.classes_, filled=True, max_depth=max_depth)
+
+    # Save the decision tree plot in the PDF file
+    output.savefig()
+    plt.show()
+
+    # Show the plot
+    plt.close()
 
     return y_pred
 
@@ -172,8 +183,8 @@ def train_machines(animal, X, y, output_filepath: str, runs: int = 1, max_depth=
 
             print(f'= Dataset: {animal}, run {run + 1} =')
 
-            y_pred_base_dt = base_dt(animal, X_train, X_test, y_train, y_test, X, max_depth, dt_output)
-            y_pred_top_dt = top_dt(animal, X_train, X_test, y_train, y_test, max_depth)
+            y_pred_base_dt = base_dt(animal, X_train, X_test, y_train, y_test, X, dt_output, max_depth)
+            y_pred_top_dt = top_dt(animal, X_train, X_test, y_train, y_test, X, dt_output, max_depth)
             y_pred_base_mlp = base_mlp(animal, X_train, X_test, y_train, y_test)
             y_pred_top_mlp = top_mlp(animal, X_train, X_test, y_train, y_test)
 
