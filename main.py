@@ -179,7 +179,7 @@ def train_machines(animal, X, y, output_filepath: str, runs: int = 1, max_depth=
         for run in range(runs):
             # Split dataset into training and testing sets.
             # Add arg random_state=36 to specify random seed for reproducibility
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1)
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, stratify=y)
 
             print(f'= Dataset: {animal}, run {run + 1} =')
 
